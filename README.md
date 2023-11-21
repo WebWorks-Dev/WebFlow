@@ -6,15 +6,20 @@ A SDK for ASP.Net making development easier
 
 This document provides an overview of two essential interfaces and their implementations within the project.
 
+```markdown
+# WebFlowAuthorizationService Documentation
+
+This document provides an overview of the `IWebFlowAuthorizationService` interface and related components within the project.
+
 ## `IWebFlowAuthorizationService`
 
-This interface handles user authorization within the web flow.
+The `IWebFlowAuthorizationService` interface manages user authorization within the web flow.
 
 ### Methods
 
 #### `RegisterUser<T>(DbContext dbContext, T authenticationObject)`
 
-Registers a user in the database.
+Registers a user in the database. Passwords are automatically hashed when provided.
 
 ```csharp
 Result<T?> RegisterUser<T>(DbContext dbContext, T authenticationObject) where T : class;
@@ -22,7 +27,7 @@ Result<T?> RegisterUser<T>(DbContext dbContext, T authenticationObject) where T 
 
 #### `AuthenticateUserAsync<T>(DbContext dbContext, HttpContext httpContext, T authenticationObject)`
 
-Authenticates a user based on provided attributes.
+Authenticates the user based on provided attributes.
 
 ```csharp
 Task<Result<T?>> AuthenticateUserAsync<T>(DbContext dbContext, HttpContext httpContext, T authenticationObject) where T : class;
@@ -34,6 +39,100 @@ Logs the user out and invalidates their session.
 
 ```csharp
 Result LogoutUser(HttpContext httpContext);
+```
+
+### Configuration Utilities
+
+#### `RegisterAuthorizationService(IServiceCollection serviceCollection, Assembly executing, JwtConfig jwtConfig)`
+
+Registers the authorization service based on provided configurations.
+
+```csharp
+public static void RegisterAuthorizationService(IServiceCollection serviceCollection, Assembly executing, JwtConfig jwtConfig);
+```
+
+#### `RegisterAuthorizationMiddlewares(IApplicationBuilder applicationBuilder, AuthorizationType authorizationType)`
+
+Registers middlewares for authorization handling.
+
+```csharp
+public static void RegisterAuthorizationMiddlewares(IApplicationBuilder applicationBuilder, AuthorizationType authorizationType);
+```
+
+### Attributes
+
+#### `AuthenticationClaimAttribute`
+
+Issues a claim in the `httpContext`.
+
+```csharp
+[AuthenticationClaim("UserId")]
+public Guid Id { get; set; }
+```
+
+#### `AuthenticationFieldAttribute`
+
+Specifies that this value is checked upon authentication.
+
+```csharp
+[AuthenticationField]
+public required string EmailAddress { get; set; }
+```
+
+#### `PasswordAttribute`
+
+Specifies that the value is a password and needs to be hashed and checked upon authentication.
+
+```csharp
+[Password(HashType.PBKDF2)]
+public required string Password { get; set; }
+```
+
+#### `UniqueAttribute`
+
+Specifies that the value must not be a duplicate within the database.
+
+```csharp
+[Unique]
+public required string EmailAddress { get; set; }
+```
+
+## Usage Examples
+
+Here are snippets showcasing the usage of the `IWebFlowAuthorizationService` interface and related attributes:
+
+### Interface Usage
+```cs
+[HttpPost("create")]
+public async Task<IActionResult> CreateUser(AuthorizationRequest authorizationRequest)
+{
+    await using var context = await _dbContext.CreateDbContextAsync();
+
+    Result<User?> result = _authorizationService.RegisterUser(context, (User)authorizationRequest);
+    if (!result.IsSuccess)
+        return BadRequest();
+        
+    await context.SaveChangesAsync();
+        
+    var cachedUser = (CachedUser)result.Unwrap()!;
+    _genericCacheService.CacheObject(cachedUser);
+        
+    return Ok(result.Unwrap());
+}
+
+[HttpPost("login")]
+public async Task<IActionResult> LoginUser(AuthorizationRequest authorizationRequest)
+{
+    await using var context = await _dbContext.CreateDbContextAsync();
+
+    Result<User?> result = await _authorizationService.AuthenticateUserAsync(context, HttpContext, (User)authorizationRequest);
+    if (!result.IsSuccess)
+        return BadRequest();
+        
+    await context.SaveChangesAsync();
+
+    return Ok();
+}
 ```
 
 ## `IGenericCacheService`
