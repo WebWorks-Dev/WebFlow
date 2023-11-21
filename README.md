@@ -1,6 +1,6 @@
 # WebFlow
 A SDK for ASP.Net making development easier
-
+If for any reason the documenation below isn't clear we have a fully working example within WebFlowTest
 
 # Project Documentation
 
@@ -256,7 +256,17 @@ _genericCacheService.DeleteObject(key);
 await _genericCacheService.RefreshCacheAsync(new List<Type> { typeof(CachedUser) });
 ```
 
-Feel free to add more details or specific examples as needed!
-```
+### Model
+```csharp
+[AdaptFrom(typeof(User))]
+public class CachedUser
+{
+    [CacheKey]
+    public Guid Id { get; set; }
 
-This README.md file includes the documentation for the interfaces `IWebFlowAuthorizationService` and `IGenericCacheService`, along with snippets showcasing their usage. You can add this content to your GitHub repository to document these interfaces effectively.
+    public required string EmailAddress { get; set; }
+
+    public static explicit operator CachedUser(User user) =>
+        user.Adapt<CachedUser>();
+}
+```
