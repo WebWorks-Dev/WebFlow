@@ -95,6 +95,7 @@ public static partial class RegisterWebFlowServices
                 break;
             
             case AuthorizationType.Session:
+                throw new NotSupportedException("Not yet implemented, use JWT");
                 break;
             
             default:

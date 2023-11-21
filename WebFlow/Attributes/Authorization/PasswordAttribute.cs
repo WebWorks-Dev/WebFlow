@@ -7,6 +7,9 @@ public enum HashType
     BCRYPT
 }
 
+/// <summary>
+/// Specifies that the value is a password and needs to be hashed and checked upon authentication
+/// </summary>
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
 public class PasswordAttribute : Attribute
 {
