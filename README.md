@@ -6,7 +6,6 @@ A SDK for ASP.Net making development easier
 
 This document provides an overview of two essential interfaces and their implementations within the project.
 
-```markdown
 # WebFlowAuthorizationService Documentation
 
 This document provides an overview of the `IWebFlowAuthorizationService` interface and related components within the project.
@@ -103,6 +102,30 @@ Here are snippets showcasing the usage of the `IWebFlowAuthorizationService` int
 
 ### Interface Usage
 ```cs
+public class User : IEntityTypeConfiguration<User>
+{
+    [AuthenticationClaim("UserId")] public Guid Id { get; set; }
+
+    [Unique, AuthenticationClaim("EmailAddress"), AuthenticationField]
+    public required string EmailAddress { get; set; }
+
+    [Password(HashType.PBKDF2)] 
+    public required string Password { get; set; }
+
+    public void Configure(EntityTypeBuilder<User> builder)
+    {
+        builder.Property(x => x.Id)
+            .HasDefaultValue(Guid.NewGuid());
+    }
+}
+
+[AdaptTo(typeof(User))]
+public record AuthorizationRequest(string EmailAddress, string Password)
+{
+    public static explicit operator User(AuthorizationRequest user) =>
+        user.Adapt<User>();
+}
+
 [HttpPost("create")]
 public async Task<IActionResult> CreateUser(AuthorizationRequest authorizationRequest)
 {
