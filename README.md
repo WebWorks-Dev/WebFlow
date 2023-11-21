@@ -2,7 +2,6 @@
 A SDK for ASP.Net making development easier
 
 
-```markdown
 # Project Documentation
 
 This document provides an overview of two essential interfaces and their implementations within the project.
