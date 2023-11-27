@@ -13,11 +13,14 @@
 		<Title>WebFlow</Title>
 		<Authors>WebWorks</Authors>
 		<Description>A SDK for ASP.NET made to make development faster and easier.</Description>
-		<PackageProjectUrl>https://github.com/WebWorks-Dev/WebFlow</PackageProjectUrl>
+		<PackageProjectUrl>https://webworks.store</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/WebWorks-Dev/WebFlow</RepositoryUrl>
 		<RepositoryType>GitHub</RepositoryType>
 		<PackageIcon>image0.jpg</PackageIcon>
 		<PackageTags>Asp.Net, C#, NET6.0</PackageTags>
+		<Version>1.1.0</Version>
+		<PackageReleaseNotes>Added documentation for IEmailService and IPasswordHashService, added password resets, added account email validation (codes)
+</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>

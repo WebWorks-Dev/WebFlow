@@ -13,54 +13,56 @@ namespace WebFlow.Authorization;
 internal partial class WebFlowAuthorizationImplementation : IWebFlowAuthorizationService
 {
     private readonly IPasswordHashService _passwordHashService;
+
     private readonly JwtConfig _jwtConfig;
     private readonly IMemoryCache _memoryCache;
 
-    public WebFlowAuthorizationImplementation(IPasswordHashService passwordHashService, JwtConfig jwtConfig, IMemoryCache memoryCache)
+    public WebFlowAuthorizationImplementation(IPasswordHashService passwordHashService, JwtConfig jwtConfig,
+        IMemoryCache memoryCache)
     {
         _passwordHashService = passwordHashService;
         _jwtConfig = jwtConfig;
         _memoryCache = memoryCache;
     }
 
-    private static List<PropertyInfo>? FetchMappedProperty<T>(Dictionary<Type, Dictionary<string, List<PropertyInfo>>> map, T objectValue, string requestedObject)
+    private static List<PropertyInfo>? FetchMappedProperty<T>(
+        Dictionary<Type, Dictionary<string, List<PropertyInfo>>> map, T objectValue, string requestedObject)
     {
-        if (!map.TryGetValue(typeof(T), out var mapProperties))
-            return null;
-
-        return mapProperties.TryGetValue(requestedObject, out var propertyInfo)
-            ? propertyInfo 
+        return map.TryGetValue(typeof(T), out var mapProperties) 
+            ? mapProperties.GetValueOrDefault(requestedObject) 
             : null;
     }
 
-    private static T? FetchDatabaseObject<T>(List<PropertyInfo> propertyInfos, T authenticationObject, DbContext dbContext) where T : class
+    private static T? FetchDatabaseObject<T>(List<PropertyInfo> propertyInfos, T authenticationObject,
+        DbContext dbContext) where T : class
     {
         IQueryable<T> query = dbContext.Set<T>().AsQueryable();
 
         foreach (var propertyInfo in propertyInfos)
         {
             object? value = propertyInfo.GetValue(authenticationObject);
-            if(value is null)
+            if (value is null)
                 continue;
-                
-            query = query.Where(e => EF.Property<object>(e, propertyInfo.Name) == propertyInfo.GetValue(authenticationObject));
+
+            query = query.Where(e =>
+                EF.Property<object>(e, propertyInfo.Name) == propertyInfo.GetValue(authenticationObject));
         }
-        
+
         return query.FirstOrDefault();
     }
 
     private void SetPassword<T>(T authenticationObject)
     {
         PropertyInfo? passwordProperty = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap, authenticationObject, "password")?[0];
-        if (passwordProperty is null) 
+        if (passwordProperty is null)
             return;
-        
+
         var passwordAttribute = (PasswordAttribute)Attribute.GetCustomAttribute(passwordProperty, typeof(PasswordAttribute))!;
         var passwordValue = (string?)passwordProperty.GetValue(authenticationObject);
 
-        if (passwordValue is null) 
+        if (passwordValue is null)
             return;
-        
+
         string hashedValue = _passwordHashService.CreateHash(passwordValue, passwordAttribute.HashType);
         passwordProperty.SetValue(authenticationObject, hashedValue);
     }
@@ -68,55 +70,73 @@ internal partial class WebFlowAuthorizationImplementation : IWebFlowAuthorizatio
     public Result<T?> RegisterUser<T>(DbContext dbContext, T authenticationObject) where T : class
     {
         Type objectType = typeof(T);
-        
+
         IEntityType? entityType = dbContext.Model.FindEntityType(objectType);
         if (entityType is null)
         {
-            return Result<T>.Fail(new WebFlowException(AuthorizationConstants.CantFindType(objectType)));
+            throw new WebFlowException(AuthorizationConstants.CantFindType(objectType));
         }
 
         SetPassword(authenticationObject);
 
-        List<PropertyInfo>? uniqueProperties = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap, authenticationObject, "unique_properties");
+        List<PropertyInfo>? uniqueProperties = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap,
+            authenticationObject, "unique_properties");
         if (uniqueProperties is not null)
         {
             T? user = FetchDatabaseObject(uniqueProperties, authenticationObject, dbContext);
-            if(user is not null)
+            if (user is not null)
+            {
                 return Result<T>.Fail(AuthorizationConstants.AccountAlreadyExists);
+            }
+        }
+
+        if (ServicesConfiguration.IsEmailAuthEnabled)
+        {
+            PropertyInfo? registrationTokenProperty = FetchMappedProperty(ServicesConfiguration.EmailFieldsMap,
+                authenticationObject, "registration_token")?[0];
+
+            if (registrationTokenProperty is null)
+            {
+                return Result<T>.Fail(AuthorizationConstants.RegistrationTokenCantBeNull);
+            }
+
+            registrationTokenProperty.SetValue(authenticationObject, Guid.NewGuid());
         }
 
         return ExceptionExtensions.Try<T?>(() => dbContext.Set<T>().Add(authenticationObject).Entity);
     }
 
-    public async Task<Result<T?>> AuthenticateUserAsync<T>(DbContext dbContext, HttpContext httpContext, T authenticationObject) where T : class
+    public async Task<Result<T?>> AuthenticateUserAsync<T>(DbContext dbContext, HttpContext httpContext,
+        T authenticationObject) where T : class
     {
         Type objectType = typeof(T);
 
         IEntityType? entityType = dbContext.Model.FindEntityType(objectType);
         if (entityType is null)
         {
-            return Result<T>.Fail(new WebFlowException(AuthorizationConstants.CantFindType(objectType)));
+            throw new WebFlowException(AuthorizationConstants.CantFindType(objectType));
         }
 
         List<PropertyInfo>? authenticationFields = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap, authenticationObject, "authentication_fields");
-        if(authenticationFields is null || FetchDatabaseObject(authenticationFields, authenticationObject, dbContext) is not { } user)
+        if (authenticationFields is null ||
+            FetchDatabaseObject(authenticationFields, authenticationObject, dbContext) is not { } user)
         {
             return Result<T>.Fail(AuthorizationConstants.InvalidParameters);
         }
-        
+
         PropertyInfo? userPassword = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap, user, "password")?[0];
         PropertyInfo? passwordPropertyRequest = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap, authenticationObject, "password")?[0];
-        if(passwordPropertyRequest is not null && userPassword is not null)
+        if (passwordPropertyRequest is not null && userPassword is not null)
         {
             var passwordAttribute = (PasswordAttribute)Attribute.GetCustomAttribute(passwordPropertyRequest, typeof(PasswordAttribute))!;
-        
+
             var hashedPasswordValue = (string?)userPassword.GetValue(user);
             var passwordValue = (string?)passwordPropertyRequest.GetValue(authenticationObject);
             if (passwordValue is null || hashedPasswordValue is null)
             {
-                return Result<T>.Fail(new WebFlowException(AuthorizationConstants.ValueCantBeNull));
+                return Result<T>.Fail(AuthorizationConstants.PasswordFieldValueCantBeNull);
             }
-        
+
             bool isPasswordValid = _passwordHashService.ValidatePassword(passwordAttribute.HashType, passwordValue, hashedPasswordValue);
             if (!isPasswordValid)
             {
@@ -127,12 +147,12 @@ internal partial class WebFlowAuthorizationImplementation : IWebFlowAuthorizatio
         if (!ServicesConfiguration.IsEmailAuthEnabled)
         {
             IssueAuthorizationClaims(httpContext, authenticationObject);
-            
+
             return Result<T?>.Ok(user);
         }
 
         PropertyInfo? registrationTokenProperty = FetchMappedProperty(ServicesConfiguration.EmailFieldsMap, authenticationObject, "registration_token")?[0];
-        if(registrationTokenProperty is null)
+        if (registrationTokenProperty is null)
         {
             return Result<T>.Fail(AuthorizationConstants.AccountNotVerified);
         }
@@ -155,20 +175,110 @@ internal partial class WebFlowAuthorizationImplementation : IWebFlowAuthorizatio
             httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return Result.Fail(AuthorizationConstants.MissingWebFlowSessionId);
         }
-        
+
         ClearCookies(httpContext);
         _memoryCache.Set(sessionId, true, TimeSpan.FromMinutes(15));
 
         return Result.Ok();
     }
 
-    public Result RequestPasswordUpdate<T>(DbContext context, T accountObject)
+    public Result ValidateRegistrationToken<T>(DbContext dbContext, T authenticationObject) where T : class
     {
+        if (!ServicesConfiguration.IsEmailAuthEnabled)
+        {
+            throw new WebFlowException(AuthorizationConstants.EmailAuthenticationMustBeEnabled);
+        }
+
+        PropertyInfo? requestRegistrationTokenProperty = FetchMappedProperty(ServicesConfiguration.EmailFieldsMap, authenticationObject, "registration_token")?[0];
+        var registrationTokenValue = (Guid?)requestRegistrationTokenProperty?.GetValue(authenticationObject);
+        if (requestRegistrationTokenProperty is null || registrationTokenValue is null)
+        {
+            return Result.Fail(AuthorizationConstants.RegistrationTokenCantBeNull);
+        }
+
+        //Absolutely not gonna bother writing a whole separate method just to allow a a single type
+        T? user = FetchDatabaseObject(new List<PropertyInfo>() { requestRegistrationTokenProperty }, authenticationObject, dbContext);
+        if (user is null)
+        {
+            return Result.Fail(AuthorizationConstants.AccountDoesntExist);
+        }
+
+        PropertyInfo? databaseRegistrationTokenProperty = FetchMappedProperty(ServicesConfiguration.EmailFieldsMap, user, "registration_token")?[0];
+        var databaseRegistrationTokenValue = (Guid?)databaseRegistrationTokenProperty?.GetValue(user);
+
+        if (databaseRegistrationTokenProperty is null || registrationTokenValue == Guid.Empty)
+        {
+            return Result.Fail(AuthorizationConstants.AccountAlreadyVerified);
+        }
+
+        if (databaseRegistrationTokenValue != registrationTokenValue)
+        {
+            return Result.Fail(AuthorizationConstants.InvalidRegistrationToken);
+        }
+
+        requestRegistrationTokenProperty.SetValue(user, Guid.Empty);
+        
         return Result.Ok();
     }
-    
-    public Result UpdatePassword<T>(DbContext context, T accountObject)
+
+    public Result<T?> UpdatePassword<T>(DbContext dbContext, T authenticationObject, string? newPassword = null) where T : class
     {
-        return Result.Ok();
+        List<PropertyInfo>? authenticationFields = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap, authenticationObject, "authentication_fields");
+        if (authenticationFields is null ||
+            FetchDatabaseObject(authenticationFields, authenticationObject, dbContext) is not { } databaseUser)
+        {
+            return Result<T>.Fail(AuthorizationConstants.InvalidParameters);
+        }
+
+        PropertyInfo? databasePasswordTokenProperty = FetchMappedProperty(ServicesConfiguration.EmailFieldsMap, databaseUser, "password_token")?[0];
+        if (databasePasswordTokenProperty is null)
+        {
+            throw new WebFlowException(AuthorizationConstants.FailedToReadType(typeof(T)));
+        }
+
+        if (newPassword is null)
+        {
+            string token = (DateTimeOffset.Now.ToUnixTimeSeconds() + 900) + ":" + Guid.NewGuid();
+            databasePasswordTokenProperty.SetValue(databaseUser, token);
+            
+            return Result<T?>.Ok(databaseUser);
+        }
+        
+        PropertyInfo? requestPasswordTokenProperty = FetchMappedProperty(ServicesConfiguration.EmailFieldsMap, authenticationObject, "password_token")?[0];
+        var requestPasswordToken = (string?)requestPasswordTokenProperty?.GetValue(databaseUser);
+        if (requestPasswordTokenProperty is null || requestPasswordToken is null)
+        {
+            throw new WebFlowException(AuthorizationConstants.FailedToReadType(typeof(T)));
+        }
+        
+        string[] tokenParts = requestPasswordToken.Split(':');
+        
+        long tokenTime = long.TryParse(tokenParts[0], out var tt) ? tt : 0;
+        long currentTime = DateTimeOffset.Now.ToUnixTimeSeconds();
+        if (currentTime > tokenTime)
+        {
+            return Result<T>.Fail(AuthorizationConstants.PasswordTokenExpired);
+        }
+        
+        PropertyInfo? databasePasswordProperty = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap, databaseUser, "password")?[0];
+        if (databasePasswordProperty is null)
+        {
+            throw new WebFlowException(AuthorizationConstants.FailedToReadType(typeof(T)));
+        }
+        
+        var databasePasswordToken = (string?)databasePasswordTokenProperty?.GetValue(databaseUser);
+        if (requestPasswordToken != databasePasswordToken)
+        {
+            return Result<T>.Fail(AuthorizationConstants.InvalidToken);
+        }
+
+        var passwordAttribute = (PasswordAttribute?)Attribute.GetCustomAttribute(databasePasswordProperty, typeof(PasswordAttribute));
+
+        string hashedPassword = _passwordHashService.CreateHash(newPassword, passwordAttribute!.HashType);
+        databasePasswordProperty.SetValue(databaseUser, hashedPassword);
+
+        databasePasswordTokenProperty?.SetValue(databaseUser, null);
+            
+        return Result<T?>.Ok(databaseUser);
     }
 }

@@ -21,3 +21,14 @@ public class PasswordAttribute : Attribute
     }
 }
 
+/// <summary>
+/// Specifies that a property represents a password reset token.
+/// </summary>
+[AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
+public class PasswordResetTokenAttribute : Attribute
+{
+    public PasswordResetTokenAttribute()
+    {
+    }
+}
+

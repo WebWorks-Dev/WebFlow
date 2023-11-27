@@ -1,5 +1,8 @@
 namespace WebFlow.Attributes;
 
+/// <summary>
+/// Represents an attribute that indicates that a object requires email verification.
+/// </summary>
 [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
 public class RequiresEmailVerificationAttribute : Attribute
 {
@@ -8,6 +11,9 @@ public class RequiresEmailVerificationAttribute : Attribute
     }
 }
 
+/// <summary>
+/// This attribute is used to mark a property as a registration token.
+/// </summary>
 [AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
 public class RegistrationTokenAttribute : Attribute
 {

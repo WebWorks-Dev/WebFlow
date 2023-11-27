@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -23,6 +24,7 @@ public sealed class EntityFrameworkContext : DbContext
     }
 }
 
+[RequiresEmailVerification]
 public class User : IEntityTypeConfiguration<User>
 {
     [AuthenticationClaim("UserId")] public Guid Id { get; set; }
@@ -32,19 +34,19 @@ public class User : IEntityTypeConfiguration<User>
 
     [Password(HashType.PBKDF2)] 
     public required string Password { get; set; }
+    
+    [RegistrationToken]
+    public Guid RegistrationToken { get; set; }
+    
+    [PasswordResetToken]
+    [MaxLength(64)]
+    public string? PasswordResetToken { get; set; }
 
     public void Configure(EntityTypeBuilder<User> builder)
     {
         builder.Property(x => x.Id)
             .HasDefaultValue(Guid.NewGuid());
     }
-}
-
-[AdaptTo(typeof(User))]
-public record AuthorizationRequest(string EmailAddress, string Password)
-{
-    public static explicit operator User(AuthorizationRequest user) =>
-        user.Adapt<User>();
 }
 
 [AdaptFrom(typeof(User))]

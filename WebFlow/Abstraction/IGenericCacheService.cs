@@ -10,56 +10,56 @@ namespace WebFlow.Caching;
 public interface IGenericCacheService
 {
     /// <summary>
-    /// Caches an object into a redis database, the key being [CacheKey]:ClassName
+    /// Stores an object into a Redis database cache with a designated key construction assuming [CacheKey]:ClassName format.
     /// </summary>
-    /// <param name="genericObject">The object you're trying to cache</param>
-    /// <param name="expiry">How long the object should be stored in the cache for</param>
-    /// <param name="when">Indicates when this operation should be performed (only some variations are legal in a given context).</param>
-    /// <typeparam name="T">The generic object</typeparam>
+    /// <param name="genericObject">Object instance to be stored into cache.</param>
+    /// <param name="expiry">Optional. Specifies the duration for which the object should remain in the cache. Default value is null indicating no expiry time.</param>
+    /// <param name="when">Optional. Indicates the scenarios where this operation should be performed. Can be configured to accommodate different contexts. Default is set to always.</param>
+    /// <typeparam name="T">Type of the object to be cached. It should be serializable.</typeparam>
     void CacheObject<T>(T genericObject, TimeSpan? expiry = null, When when = When.Always);
 
     /// <summary>
-    ///  Fetches all cached variations of this type, i.e all cached item listings
+    /// Retrieves all cached instances of the specified type from the cache.
     /// </summary>
-    /// <param name="genericObject">The cache object</param>
-    /// <returns></returns>
+    /// <param name="genericObject">Type of the objects to be fetched from the cache.</param>
+    /// <returns>A list of string representations of all cached instances of the specified type.</returns>
     List<string> FetchAll(Type genericObject);
     
     /// <summary>
-    /// Fetches the cached object
+    /// Retrieves a specific object from the cache using its associated key.
     /// </summary>
-    /// <param name="genericObject">The cached object</param>
-    /// <param name="key">The cache-key of the object, i.e a user Id</param>
-    /// <returns></returns>
+    /// <param name="genericObject">Type of the object to be fetched.</param>
+    /// <param name="key">Unique key associated with the object in the cache.</param>
+    /// <returns>The cached object serialized as string if found, otherwise null.</returns>
     string? FetchObject(Type genericObject, string key);
     
     /// <summary>
-    /// Fetches the item based on the nearest guess to the cacheKey, i.e can be used in item searches when the key is set to the item Name
+    /// Fetches objects from the cache that have key values closely resembling the provided guess.
     /// </summary>
-    /// <param name="genericObject">The cached object</param>
-    /// <param name="guess">The guess is based on the cacheKey of the cacheObject</param>
-    /// <returns></returns>
+    /// <param name="genericObject">Type of the objects to be fetched.</param>
+    /// <param name="guess">Estimate of the cacheKey associated with the desired objects.</param>
+    /// <returns>List of objects serialized as strings that have keys resembling the provided guess.</returns>
     List<string> FetchNearest(Type genericObject, string guess);
 
     /// <summary>
-    /// Updates the item within the cache
+    /// Updates a specific object within the cache.
     /// </summary>
-    /// <param name="genericObject">The cache object you want to update</param>
-    /// <typeparam name="T"></typeparam>
+    /// <param name="genericObject">Updated version of the object to be stored into cache.</param>
+    /// <typeparam name="T">Type of the object to be updated in the cache. It should be serializable.</typeparam>
     void UpdateObject<T>(T genericObject);
     
     /// <summary>
-    /// Deletes the item from the cache
+    /// Deletes a specific object from the cache using its associated key.
     /// </summary>
-    /// <param name="key"></param>
-    /// <returns></returns>
+    /// <param name="key">Unique key associated with the object in the cache.</param>
+    /// <returns>True if deletion was successful, false otherwise.</returns>
     bool DeleteObject(string key);
     
     /// <summary>
-    /// Refreshes the cache with the set of objects provided, i.e refreshes the cache of item listings
+    /// Clears and repopulates the cache with a new set of objects.
     /// </summary>
-    /// <param name="genericObjects"></param>
-    /// <returns></returns>
+    /// <param name="genericObjects">List of new objects to be stored into cache after clearance.</param>
+    /// <returns>Task representing the asynchronous operation of cache refreshing.</returns>
     Task RefreshCacheAsync(List<Type> genericObjects);
 }
 

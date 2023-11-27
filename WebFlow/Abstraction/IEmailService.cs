@@ -11,55 +11,55 @@ namespace WebFlow.Email;
 public interface IEmailService
 {
     /// <summary>
-    /// Sends out an email to the recipient
+    /// Sends an email to a recipient.
     /// </summary>
-    /// <param name="sender">Account the email is being sent from</param>
-    /// <param name="recipientEmail">Person you're trying to send to</param>
-    /// <param name="subject"></param>
-    /// <param name="body"></param>
-    /// <param name="isHtml">Whether the body is html or not</param>
-    /// <returns></returns>
+    /// <param name="sender">The mailbox address from which the email will be sent.</param>
+    /// <param name="recipientEmail">Email address of the recipient.</param>
+    /// <param name="subject">The subject line of the email.</param>
+    /// <param name="body">The main content of the email.</param>
+    /// <param name="isHtml">Flag indicating whether the body content is HTML or not. (default to false)</param>
+    /// <returns>A result object indicating the status of the email sending operation.</returns>
     Result SendOutEmail(MailboxAddress sender, [EmailAddress] string recipientEmail, string subject, string body, bool isHtml = false);
     
     /// <summary>
-    /// Send a templated email to the recipient, requires an html object and a object with the mapped variables
+    /// Sends a templated email to a recipient.
     /// </summary>
-    /// <param name="sender">Account the email is being sent from</param>
-    /// <param name="recipientEmail">Person you're trying to send to</param>
-    /// <param name="subject"></param>
-    /// <param name="templateObject">The object that contains the variables which can be found in the html file</param>
-    /// <param name="htmlContent">The html content</param>
-    /// <typeparam name="T"></typeparam>
-    /// <returns></returns>
+    /// <param name="sender">The mailbox address from which the email will be sent.</param>
+    /// <param name="recipientEmail">Email address of the recipient.</param>
+    /// <param name="subject">The subject line of the email.</param>
+    /// <param name="templateObject">An object that contains variables to be replaced in the HTML template.</param>
+    /// <param name="htmlContent">The HTML template for the email body.</param>
+    /// <typeparam name="T">The type of the template object.</typeparam>
+    /// <returns>A result object indicating the status of the email sending operation.</returns>
     Result SendOutEmail<T>(MailboxAddress sender, [EmailAddress] string recipientEmail, string subject, T templateObject, string htmlContent);
 
     /// <summary>
-    /// Sends out an email asynchronously to the recipient
+    /// Asynchronously sends an email to a recipient.
     /// </summary>
-    /// <param name="sender">Account the email is being sent from</param>
-    /// <param name="recipientEmail">Person you're trying to send to</param>
-    /// <param name="subject"></param>
-    /// <param name="body"></param>
-    /// <param name="isHtml">Whether the body is html or not</param>
-    /// <returns></returns>
+    /// <param name="sender">The mailbox address from which the email will be sent.</param>
+    /// <param name="recipientEmail">Email address of the recipient.</param>
+    /// <param name="subject">The subject line of the email.</param>
+    /// <param name="body">The main content of the email.</param>
+    /// <param name="isHtml">Flag indicating whether the body content is HTML or not. (default is to false)</param>
+    /// <returns>A task representing the asynchronous email operation, containing a result object indicating the status of the email sending operation.</returns>
     Task<Result> SendOutEmailAsync(MailboxAddress sender, string recipientEmail, string subject, string body, bool isHtml = false);
     
     /// <summary>
-    /// Send a templated email asynchronously to the recipient, requires an html object and a object with the mapped variables
+    /// Asynchronously sends a templated email to a recipient.
     /// </summary>
-    /// <param name="sender">Account the email is being sent from</param>
-    /// <param name="recipientEmail">Person you're trying to send to</param>
-    /// <param name="subject"></param>
-    /// <param name="templateObject">The object that contains the variables which can be found in the html file</param>
-    /// <param name="htmlContent">The html content</param>
-    /// <typeparam name="T"></typeparam>
-    /// <returns></returns>
+    /// <param name="sender">The mailbox address from which the email will be sent.</param>
+    /// <param name="recipientEmail">Email address of the recipient.</param>
+    /// <param name="subject">The subject line of the email.</param>
+    /// <param name="templateObject">An object that contains variables to be replaced in the HTML template.</param>
+    /// <param name="htmlContent">The HTML template for the email body.</param>
+    /// <typeparam name="T">The type of the template object.</typeparam>
+    /// <returns>A task representing the asynchronous email operation, containing a result object indicating the status of the email sending operation.</returns>
     Task<Result> SendOutEmailAsync<T>(MailboxAddress sender, string recipientEmail, string subject, T templateObject, string htmlContent);
 }
 
 public static partial class RegisterWebFlowServices
 {
-    public static void RegisterEmailService(this IServiceCollection serviceCollection, string connectionString)
+    public static void RegisterEmailService(this IServiceCollection serviceCollection, string connectionString, string email, string password)
     {
         string[] splitConnectionString = connectionString.Split(':');
         int port = Convert.ToInt32(splitConnectionString[1]);
@@ -70,7 +70,8 @@ public static partial class RegisterWebFlowServices
             var smtpClient = new SmtpClient();
             smtpClient.ServerCertificateValidationCallback = (s, c, h, e) => true;
             smtpClient.Connect(splitConnectionString[0], port, SecureSocketOptions.StartTls);
-            
+            smtpClient.Authenticate(email, password);
+
             return smtpClient;
         });
     }

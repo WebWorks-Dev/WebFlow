@@ -18,35 +18,54 @@ public enum AuthorizationType
     Session
 }
 
-//ToDo password resets, add email verification
-//ToDo if email verification is enabled on password resets or account confirmation needs additional 2 confirmation methods
 public interface IWebFlowAuthorizationService
 {
     /// <summary>
-    /// Registers the user in the database, passwords are automatically hashed when provided
+    /// Registers a user into the authentication database. 
+    /// Incoming password for the user is automatically hashed prior to storage with the [Password] attribute.
     /// </summary>
-    /// <param name="dbContext">A db context created within the calling method</param>
-    /// <param name="authenticationObject">The object that we want to register within the database</param>
-    /// <typeparam name="T"></typeparam>
-    /// <returns></returns>
+    /// <param name="dbContext">Database context used for user registration operation.</param>
+    /// <param name="authenticationObject">Object containing the information of user to be registered.</param>
+    /// <typeparam name="T">Type of the authentication object.</typeparam>
+    /// <returns>Result of the registration operation indicating success or failure along with the registered user object.</returns>
     Result<T?> RegisterUser<T>(DbContext dbContext, T authenticationObject) where T : class;
     
     /// <summary>
-    /// Authenticates the user based on the provided [AuthenticationField] or and [PasswordHash] attributes
+    /// Authenticates a user based on the provided credentials (identified with [AuthenticationField] and [Password] attributes).
     /// </summary>
-    /// <param name="dbContext">A db context created within the calling method</param>
-    /// <param name="httpContext">The http-context of the caller method, used to issue authorization cookies</param>
-    /// <param name="authenticationObject">The object that we want to register within the database</param>
-    /// <typeparam name="T"></typeparam>
-    /// <returns></returns>
+    /// <param name="dbContext">Database context used for authentication process.</param>
+    /// <param name="httpContext">HttpContext of the caller endpoint utilized for issuing the resulting authorization cookie.</param>
+    /// <param name="authenticationObject">Object containing the credentials of the user attempting to authenticate.</param>
+    /// <typeparam name="T">Type of the authentication object.</typeparam>
+    /// <returns>A Task leading to a Result of the authentication operation indicating success or failure along with the authenticated user object.</returns>
     Task<Result<T?>> AuthenticateUserAsync<T>(DbContext dbContext, HttpContext httpContext, T authenticationObject) where T : class;
     
     /// <summary>
-    /// Logs the user out and invalidates their session
+    /// Terminates the authenticated user's session, revoking their current authentication cookie.
     /// </summary>
-    /// <param name="httpContext">The http-context of the caller method</param>
-    /// <returns></returns>
+    /// <param name="httpContext">HttpContext of the caller endpoint from which the user's cookie is extracted.</param>
+    /// <returns>A Result indication the success or failure of the logout operation.</returns>
     Result LogoutUser(HttpContext httpContext);
+
+    /// <summary>
+    /// Validates a user's registration token. If valid, the corresponding user is marked as verified and allowed to log in.
+    /// <para>Usable only when `UseEmailVerification` is enabled.</para>
+    /// </summary>
+    /// <param name="dbContext">Database context used for the validation process.</param>
+    /// <param name="authenticationObject">Object containing the user's registration token to validate.</param>
+    /// <typeparam name="T">Type of the authentication object.</typeparam>
+    /// <returns>The Result of the validation operation indicating whether it was successful or not.</returns>
+    Result ValidateRegistrationToken<T>(DbContext dbContext, T authenticationObject) where T : class;
+
+    /// <summary>
+    /// Updates the authenticated user's current password.
+    /// </summary>
+    /// <param name="dbContext">Database context used for password update operation.</param>
+    /// <param name="authenticationObject">Object containing the authenticated user's information.</param>
+    /// <param name="newPassword">New password for the authenticated user. If null.</param>
+    /// <typeparam name="T">Type of the authentication object.</typeparam>
+    /// <returns>A Result of the operation indicating success or failure along with the updated user object.</returns>
+    Result<T?> UpdatePassword<T>(DbContext dbContext, T authenticationObject, string? newPassword = null) where T : class;
 }
 
 public static partial class RegisterWebFlowServices
@@ -60,7 +79,7 @@ public static partial class RegisterWebFlowServices
                 continue;
             
             var dictionary = new Dictionary<string, List<PropertyInfo>>();
-
+            
             List<PropertyInfo> authenticationFields = classProperties.Where(p => p.GetCustomAttribute<AuthenticationFieldAttribute>() is not null).ToList();
             if(authenticationFields.Count is not 0)
                 dictionary.Add("authentication_fields", authenticationFields);
@@ -81,6 +100,8 @@ public static partial class RegisterWebFlowServices
             
             ServicesConfiguration.AuthenticationPropertiesMap.Add(type, dictionary);
         }
+        
+        serviceCollection.AddMemoryCache();
         
         serviceCollection.AddSingleton(jwtConfig);
         serviceCollection.AddTransient(typeof(IWebFlowAuthorizationService), typeof(WebFlowAuthorizationImplementation));
@@ -105,20 +126,24 @@ public static partial class RegisterWebFlowServices
         ServicesConfiguration.AuthorizationType = authorizationType;
     }
     
-    public static void UseEmailVerification(Assembly assembly)
+    public static void UseEmailVerification(this IServiceCollection serviceCollection, Assembly assembly)
     {
-        foreach (var type in assembly.GetTypes())
+        var typesWithRequiredEmailVerification = assembly.GetTypes()
+            .Where(type =>
+                type.GetCustomAttribute<RequiresEmailVerificationAttribute>() is not null)
+            .ToList();
+        
+        foreach (var type in typesWithRequiredEmailVerification)
         {
-            List<PropertyInfo> properties = type.GetProperties()
-                .Where(p => p.GetCustomAttribute<RequiresEmailVerificationAttribute>() is not null)
-                .ToList();
-            
-            if(properties.Count is 0)
-                continue;
-            
-            List<PropertyInfo> emailProperty = properties.Where(x => x.GetCustomAttribute<EmailAddressAttribute>() is not null).ToList();
+            /*List<PropertyInfo> emailProperty = properties.Where(x => x.GetCustomAttribute<EmailAddressAttribute>() is not null).ToList();
             if (emailProperty.Count is 0)
-                throw new WebFlowException(AuthorizationConstants.ClassMustHaveEmailDefined);
+                throw new WebFlowException(AuthorizationConstants.ClassMustHaveEmailDefined);*/
+
+            var properties = type.GetProperties();
+            
+            List<PropertyInfo> passwordResetToken = properties.Where(x => x.GetCustomAttribute<PasswordResetTokenAttribute>() is not null).ToList();
+            if (passwordResetToken.Count is 0)
+                throw new WebFlowException(AuthorizationConstants.ClassMustHavePassTokenDefined); 
             
             List<PropertyInfo> registrationToken = properties.Where(x => x.GetCustomAttribute<RegistrationTokenAttribute>() is not null).ToList();
             if (registrationToken.Count is 0)
@@ -126,12 +151,13 @@ public static partial class RegisterWebFlowServices
             
             var propertyDictionary = new Dictionary<string, List<PropertyInfo>>()
             {
-                { "email_property", emailProperty },
+                { "password_token", passwordResetToken },
                 { "registration_token", registrationToken }
             };
 
-            ServicesConfiguration.IsEmailAuthEnabled = true;
             ServicesConfiguration.EmailFieldsMap.Add(type, propertyDictionary);
         }
+        
+        ServicesConfiguration.IsEmailAuthEnabled = true;
     }
 }

@@ -52,7 +52,7 @@ public class JwtValidatorMiddleware
                 ValidIssuer = _jwtConfig.Issuer,
                 ValidAudience = _jwtConfig.Audience,
                 IssuerSigningKey = key
-            }, out SecurityToken validatedToken);
+            }, out _);
 
             await _next(httpContext);
         }
@@ -64,9 +64,9 @@ public class JwtValidatorMiddleware
 
     private bool ShouldApplyJwtValidation(HttpContext context)
     {
-        var endpoint = context.GetEndpoint();
-
+        Endpoint? endpoint = context.GetEndpoint();
         var authorizeAttribute = endpoint?.Metadata.GetMetadata<AuthorizeAttribute>();
-        return authorizeAttribute != null;
+        
+        return authorizeAttribute is not null;
     }
 }

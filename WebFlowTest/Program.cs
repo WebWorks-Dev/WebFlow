@@ -7,8 +7,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using WebFlow.Caching;
 using WebFlow.Authorization;
+using WebFlow.Email;
 using WebFlow.Models;
 using WebFlow.Passwords;
+using WebFlowTest;
 using WebFlowTest.Exensions;
 
 var jwtConfig = new JwtConfig
@@ -16,17 +18,20 @@ var jwtConfig = new JwtConfig
     // Initialize your JwtConfig properties here
     Issuer = "your_issuer",
     Audience = "your_audience",
-    Key = "your_key",
+    Key = "abcdefghijklmnoprsquvxyz123456789",
     Duration = DateTime.UtcNow.AddMinutes(120)
 };
 
+Assembly executingAssembly = Assembly.GetExecutingAssembly();
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddMemoryCache();
+builder.Services.RegisterCachingService(executingAssembly, "127.0.0.1:6379");
 
-builder.Services.RegisterCachingService(Assembly.GetExecutingAssembly(), "127.0.0.1:6379");
-builder.Services.RegisterAuthorizationService(Assembly.GetExecutingAssembly(), jwtConfig);
+builder.Services.RegisterAuthorizationService(executingAssembly, jwtConfig);
+builder.Services.UseEmailVerification(executingAssembly);
+
 builder.Services.RegisterPasswordHashing();
+builder.Services.RegisterEmailService("smtp.gmail.com:587", "numix.software@gmail.com", "qouxtpykaindipcg");
 
 builder.Services.RegisterDataServices();
 builder.Services.AddSwaggerGen();
