@@ -51,20 +51,22 @@ internal partial class WebFlowAuthorizationImplementation : IWebFlowAuthorizatio
         return query.FirstOrDefault();
     }
 
-    private void SetPassword<T>(T authenticationObject)
+    private Result SetPassword<T>(ref T authenticationObject)
     {
         PropertyInfo? passwordProperty = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap, authenticationObject, "password")?[0];
         if (passwordProperty is null)
-            return;
+            return Result.Fail(AuthorizationConstants.FailedToReadType(typeof(T)));
 
         var passwordAttribute = (PasswordAttribute)Attribute.GetCustomAttribute(passwordProperty, typeof(PasswordAttribute))!;
         var passwordValue = (string?)passwordProperty.GetValue(authenticationObject);
 
         if (passwordValue is null)
-            return;
+            return Result.Fail(AuthorizationConstants.PasswordFieldValueCantBeNull);
 
         string hashedValue = _passwordHashService.CreateHash(passwordValue, passwordAttribute.HashType);
         passwordProperty.SetValue(authenticationObject, hashedValue);
+
+        return Result.Ok();
     }
 
     public Result<T?> RegisterUser<T>(DbContext dbContext, T authenticationObject) where T : class
@@ -77,7 +79,7 @@ internal partial class WebFlowAuthorizationImplementation : IWebFlowAuthorizatio
             throw new WebFlowException(AuthorizationConstants.CantFindType(objectType));
         }
 
-        SetPassword(authenticationObject);
+        SetPassword(ref authenticationObject);
 
         List<PropertyInfo>? uniqueProperties = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap,
             authenticationObject, "unique_properties");
@@ -272,13 +274,10 @@ internal partial class WebFlowAuthorizationImplementation : IWebFlowAuthorizatio
             return Result<T>.Fail(AuthorizationConstants.InvalidToken);
         }
 
-        var passwordAttribute = (PasswordAttribute?)Attribute.GetCustomAttribute(databasePasswordProperty, typeof(PasswordAttribute));
+        Result result = SetPassword(ref databaseUser);
 
-        string hashedPassword = _passwordHashService.CreateHash(newPassword, passwordAttribute!.HashType);
-        databasePasswordProperty.SetValue(databaseUser, hashedPassword);
-
-        databasePasswordTokenProperty?.SetValue(databaseUser, null);
-            
-        return Result<T?>.Ok(databaseUser);
+        return !result.IsSuccess 
+            ? Result<T>.Fail((string)result.Error) 
+            : Result<T?>.Ok(databaseUser);
     }
 }

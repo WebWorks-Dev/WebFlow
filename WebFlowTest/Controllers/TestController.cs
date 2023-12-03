@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 using MimeKit;
-
+using WebFlow.Attributes;
 using WebFlow.Caching;
 using WebFlow.Authorization;
 using WebFlow.Email;
@@ -19,7 +19,7 @@ namespace WebFlowTest.Controllers;
 [Route("api/v1/user")]
 public class AccountController : ControllerBase
 {
-    private readonly MailboxAddress _senderAddress = new MailboxAddress("Numix", "numix.software@gmail.com");
+    private readonly MailboxAddress _senderAddress = new MailboxAddress("YOUR_NAME", "YOUR_EMAIL");
     private readonly IWebFlowAuthorizationService _authorizationService;
     private readonly IDbContextFactory<EntityFrameworkContext> _dbContext;
     private readonly IGenericCacheService _genericCacheService;
@@ -124,8 +124,9 @@ public class AccountController : ControllerBase
         return Ok(_genericCacheService.FetchObject(typeof(CachedUser), userId.ToString()));
     }
     
+    [Recaptcha]
     [HttpGet("fetch-all")]
-    public IActionResult FetchAll()
+    public IActionResult FetchAll(string recaptchaToken)
     {
         return Ok(_genericCacheService.FetchAll(typeof(CachedUser)));
     }

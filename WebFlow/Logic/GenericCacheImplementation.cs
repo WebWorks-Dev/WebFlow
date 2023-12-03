@@ -107,6 +107,14 @@ internal class GenericCacheImplementation : IGenericCacheService
         _cacheDb.StringSet(key, json);
     }
     
+    public bool DeleteObject(Type genericObject, string value)
+    {
+        CacheObject? cacheObject = FetchCacheObject(genericObject);
+        
+        return cacheObject is not null 
+               && _cacheDb.KeyDelete($"{cacheObject.ClassName}:{value}");
+    }
+    
     public bool DeleteObject(string key)
     {
         return _cacheDb.KeyDelete(key);

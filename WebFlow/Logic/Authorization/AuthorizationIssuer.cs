@@ -96,8 +96,22 @@ internal partial class WebFlowAuthorizationImplementation
             }
 
             case AuthorizationType.Session:
+            {
+                foreach (var claimsProperty in claimsProperties)
+                {
+                    var authenticationClaimAttribute = (AuthenticationClaimAttribute)Attribute.GetCustomAttribute(claimsProperty, typeof(AuthenticationClaimAttribute))!;
+                    var claimValue = (string?)claimsProperty.GetValue(authenticationObject) ?? "";
+
+                    httpContext.Session.SetString(authenticationClaimAttribute.ClaimName, claimValue);
+                }
+
+                httpContext.Session.SetString("WebFlowSessionId", $"{Guid.NewGuid()}");
+                
+                httpContext.Session.CommitAsync().Wait();
+
                 break;
-            
+            }
+
             default:
                 throw new ArgumentOutOfRangeException();
         }

@@ -54,7 +54,17 @@ public interface IGenericCacheService
     /// <param name="key">Unique key associated with the object in the cache.</param>
     /// <returns>True if deletion was successful, false otherwise.</returns>
     bool DeleteObject(string key);
-    
+
+    /// <summary>
+    /// Deletes an object of the specified type based on the provided value.
+    /// </summary>
+    /// <param name="genericObject">The type of object to delete.</param>
+    /// <param name="value">The value that uniquely identifies the object to delete.</param>
+    /// <returns>
+    /// Returns a boolean value indicating whether the deletion was successful or not.
+    /// </returns>
+    bool DeleteObject(Type genericObject, string value);
+
     /// <summary>
     /// Clears and repopulates the cache with a new set of objects.
     /// </summary>
@@ -71,7 +81,7 @@ public static class RedisConnectionManager
 
     public static void RegisterCachingService(this IServiceCollection serviceCollection, Assembly assembly, string connectionString)
     {
-        _lazyConnection = new(() => ConnectionMultiplexer.Connect(connectionString));
+        _lazyConnection = new Lazy<ConnectionMultiplexer>(() => ConnectionMultiplexer.Connect(connectionString));
         
         foreach (var type in assembly.GetTypes())
         {

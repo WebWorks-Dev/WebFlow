@@ -17,10 +17,9 @@
 		<RepositoryUrl>https://github.com/WebWorks-Dev/WebFlow</RepositoryUrl>
 		<RepositoryType>GitHub</RepositoryType>
 		<PackageIcon>image0.jpg</PackageIcon>
-		<PackageTags>Asp.Net, C#, NET6.0</PackageTags>
-		<Version>1.1.0</Version>
-		<PackageReleaseNotes>Added documentation for IEmailService and IPasswordHashService, added password resets, added account email validation (codes)
-</PackageReleaseNotes>
+		<PackageTags>Asp.Net, C#, NET6.0, Recaptcha, Authentication, Authorization</PackageTags>
+		<Version>1.2.0</Version>
+		<PackageReleaseNotes>Added missing method in GenericCacheService, added Recaptcha attribute</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>

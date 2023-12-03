@@ -160,4 +160,14 @@ public static partial class RegisterWebFlowServices
         
         ServicesConfiguration.IsEmailAuthEnabled = true;
     }
+
+    public static void UseRecaptcha(this IServiceCollection serviceCollection, string recaptchaKey)
+    {
+        serviceCollection.AddHttpClient("ReCaptcha", client => 
+        {
+            client.BaseAddress = new Uri("https://www.google.com");
+        });
+        
+        ServicesConfiguration.ReCaptchaKey = recaptchaKey;
+    }
 }

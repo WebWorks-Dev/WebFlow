@@ -28,4 +28,6 @@ internal static class AuthorizationConstants
     public const string ClassMustHavePassTokenDefined = "Email verification must contain an [PasswordResetToken] attribute somewhere within the class.";
     public const string PasswordTokenExpired = "Password reset token is expired";
     public const string InvalidToken = "Invalid token";
+
+    public const string RecaptchaMustBeEnabled = "Recaptcha must be enabled by calling UseRecaptcha(your_key);";
 }

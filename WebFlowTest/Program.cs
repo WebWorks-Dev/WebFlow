@@ -31,7 +31,8 @@ builder.Services.RegisterAuthorizationService(executingAssembly, jwtConfig);
 builder.Services.UseEmailVerification(executingAssembly);
 
 builder.Services.RegisterPasswordHashing();
-builder.Services.RegisterEmailService("smtp.gmail.com:587", "numix.software@gmail.com", "qouxtpykaindipcg");
+builder.Services.RegisterEmailService("smtp.gmail.com:587", "YOUR_EMAIL", "YOUR_PASSWORD");
+builder.Services.UseRecaptcha("YOUR_RECAPTCHA_KEY");
 
 builder.Services.RegisterDataServices();
 builder.Services.AddSwaggerGen();

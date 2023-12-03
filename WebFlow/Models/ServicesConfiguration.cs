@@ -13,6 +13,8 @@ internal static class ServicesConfiguration
     /*
     internal static JwtConfig JwtConfig { get; set; }
     */
+
+    internal static string? ReCaptchaKey;
     
     internal static AuthorizationType AuthorizationType;
     internal static readonly Dictionary<Type, Dictionary<string, List<PropertyInfo>>> AuthenticationPropertiesMap = new();
