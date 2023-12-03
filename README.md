@@ -20,6 +20,14 @@ The `IWebFlowAuthorizationService` interface defines methods for user authentica
 
 ## Registration
 
+### `UseRecaptcha(this IServiceCollection serviceCollection, string recaptchaKey)`
+
+Registers recaptcha 
+
+```cs
+builder.Services.UseRecaptcha("YOUR_RECAPTCHA_KEY");
+```
+
 ### `RegisterAuthorizationService(IServiceCollection serviceCollection, Assembly executing, JwtConfig jwtConfig)`
 
 Registers the authorization service based on provided configurations.
@@ -79,6 +87,24 @@ public enum AuthorizationType
 ```
 
 ## Attributes
+
+### `RecaptchaAttribute`
+
+Attribute that enables ReCaptcha verification on a method.
+
+#### Remarks
+
+Method must have a parameter named `recaptchaToken` other wise it will fail.
+
+```cs
+[Recaptcha]
+[HttpGet("fetch-all")]
+public IActionResult FetchAll(string recaptchaToken)
+{
+    return Ok(_genericCacheService.FetchAll(typeof(CachedUser)));
+}    
+```
+
 
 ### `AuthenticationClaimAttribute`
 
@@ -289,6 +315,15 @@ Updates a specific object within the cache.
   - `genericObject`: Updated version of the object to be stored into the cache.
 - **Type Parameter**: `T`
   - Type of the object to be updated in the cache. It should be serializable.
+
+### `DeleteObject`
+Deletes a specific object from the cache using its associated key.
+
+- **Parameters**:
+  - `genericObject`: Type of the objects to be fetched.
+  - `key`: Unique key associated with the object in the cache.
+- **Return Type**: `bool`
+  - True if deletion was successful, false otherwise.
 
 ### `DeleteObject`
 Deletes a specific object from the cache using its associated key.
