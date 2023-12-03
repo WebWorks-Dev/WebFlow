@@ -1,68 +1,112 @@
 # WebFlow
 A SDK for ASP.Net making development easier
 
+The project requires minimal to no database changes in-order to work
+
 ### Extra
 If for any reason the documenation below isn't clear we have a fully working example within [WebFlowTest](https://github.com/WebWorks-Dev/WebFlow/tree/master/WebFlowTest)
+
+[All examples](https://github.com/WebWorks-Dev/WebFlow/blob/master/WebFlowTest/Controllers/TestController.cs)
 
 # Project Documentation
 
 This document provides an overview of two essential interfaces and their implementations within the project.
 
-# WebFlowAuthorizationService Documentation
+---
 
-This document provides an overview of the `IWebFlowAuthorizationService` interface and related components within the project.
+# IWebFlowAuthorizationService Interface
 
-## `IWebFlowAuthorizationService`
+The `IWebFlowAuthorizationService` interface defines methods for user authentication, registration, session management, and password-related operations within a web application.
 
-The `IWebFlowAuthorizationService` interface manages user authorization within the web flow.
+## Registration
 
-### Methods
+### `UseRecaptcha(this IServiceCollection serviceCollection, string recaptchaKey)`
 
-#### `RegisterUser<T>(DbContext dbContext, T authenticationObject)`
+Registers recaptcha 
 
-Registers a user in the database. Passwords are automatically hashed when provided.
-
-```csharp
-Result<T?> RegisterUser<T>(DbContext dbContext, T authenticationObject) where T : class;
+```cs
+builder.Services.UseRecaptcha("YOUR_RECAPTCHA_KEY");
 ```
 
-#### `AuthenticateUserAsync<T>(DbContext dbContext, HttpContext httpContext, T authenticationObject)`
-
-Authenticates the user based on provided attributes.
-
-```csharp
-Task<Result<T?>> AuthenticateUserAsync<T>(DbContext dbContext, HttpContext httpContext, T authenticationObject) where T : class;
-```
-
-#### `LogoutUser(HttpContext httpContext)`
-
-Logs the user out and invalidates their session.
-
-```csharp
-Result LogoutUser(HttpContext httpContext);
-```
-
-### Configuration Utilities
-
-#### `RegisterAuthorizationService(IServiceCollection serviceCollection, Assembly executing, JwtConfig jwtConfig)`
+### `RegisterAuthorizationService(IServiceCollection serviceCollection, Assembly executing, JwtConfig jwtConfig)`
 
 Registers the authorization service based on provided configurations.
 
 ```csharp
-public static void RegisterAuthorizationService(IServiceCollection serviceCollection, Assembly executing, JwtConfig jwtConfig);
+var jwtConfig = new JwtConfig
+{
+    // Initialize your JwtConfig properties here
+    Issuer = "your_issuer",
+    Audience = "your_audience",
+    Key = "abcdefghijklmnoprsquvxyz123456789",
+    Duration = DateTime.UtcNow.AddMinutes(120)
+};
+
+builder.Services.RegisterAuthorizationService(executingAssembly, jwtConfig);
 ```
 
-#### `RegisterAuthorizationMiddlewares(IApplicationBuilder applicationBuilder, AuthorizationType authorizationType)`
+### `RegisterAuthorizationMiddlewares(IApplicationBuilder applicationBuilder, AuthorizationType authorizationType)`
 
 Registers middlewares for authorization handling.
 
 ```csharp
-public static void RegisterAuthorizationMiddlewares(IApplicationBuilder applicationBuilder, AuthorizationType authorizationType);
+app.RegisterAuthorizationMiddlewares(AuthorizationType.Jwt);
 ```
 
-### Attributes
+### `void UseEmailVerification(Assembly assembly)`
 
-#### `AuthenticationClaimAttribute`
+Tells WebFlow that users require email validation (Requires [RegistrationToken] and [PasswordResetToken] attributes to be defined in database classes)
+
+```cs
+builder.Services.UseEmailVerification(executingAssembly);
+```
+
+## Models
+
+```
+public class JwtConfig
+{
+    public string Key { get; set; }
+    public string Issuer { get; set; }
+    public string Audience { get; set; }
+    public DateTime Duration { get; set; }
+}
+
+public enum HashType
+{
+    None,
+    PBKDF2,
+    BCRYPT
+}
+
+//Sessions are not yet fully supported
+public enum AuthorizationType
+{
+    Jwt
+}
+```
+
+## Attributes
+
+### `RecaptchaAttribute`
+
+Attribute that enables ReCaptcha verification on a method.
+
+#### Remarks
+
+Method must have a parameter named `recaptchaToken` other wise it will fail.
+
+```cs
+[Recaptcha]
+[HttpGet("fetch-all")]
+public IActionResult FetchAll(string recaptchaToken)
+{
+    return Ok(_genericCacheService.FetchAll(typeof(CachedUser)));
+}    
+```
+
+
+### `AuthenticationClaimAttribute`
 
 Issues a claim in the `httpContext`.
 
@@ -71,7 +115,7 @@ Issues a claim in the `httpContext`.
 public Guid Id { get; set; }
 ```
 
-#### `AuthenticationFieldAttribute`
+### `AuthenticationFieldAttribute`
 
 Specifies that this value is checked upon authentication.
 
@@ -80,7 +124,7 @@ Specifies that this value is checked upon authentication.
 public required string EmailAddress { get; set; }
 ```
 
-#### `PasswordAttribute`
+### `PasswordAttribute`
 
 Specifies that the value is a password and needs to be hashed and checked upon authentication.
 
@@ -89,7 +133,7 @@ Specifies that the value is a password and needs to be hashed and checked upon a
 public required string Password { get; set; }
 ```
 
-#### `UniqueAttribute`
+### `UniqueAttribute`
 
 Specifies that the value must not be a duplicate within the database.
 
@@ -98,177 +142,316 @@ Specifies that the value must not be a duplicate within the database.
 public required string EmailAddress { get; set; }
 ```
 
-## Usage Examples
+### `RequiresEmailVerificationAttribute`
 
-Here are snippets showcasing the usage of the `IWebFlowAuthorizationService` interface and related attributes:
+Specifies that a class requires email verification
 
-### Interface Usage
+#### Remarks
+Puttting this attribute on a class requires [RegistrationToken] and [PasswordResetToken] attributes to be defined in database classes
+
 ```cs
+[RequiresEmailVerification]
 public class User : IEntityTypeConfiguration<User>
-{
-    [AuthenticationClaim("UserId")] public Guid Id { get; set; }
-
-    [Unique, AuthenticationClaim("EmailAddress"), AuthenticationField]
-    public required string EmailAddress { get; set; }
-
-    [Password(HashType.PBKDF2)] 
-    public required string Password { get; set; }
-
-    public void Configure(EntityTypeBuilder<User> builder)
-    {
-        builder.Property(x => x.Id)
-            .HasDefaultValue(Guid.NewGuid());
-    }
-}
-
-[AdaptTo(typeof(User))]
-public record AuthorizationRequest(string EmailAddress, string Password)
-{
-    public static explicit operator User(AuthorizationRequest user) =>
-        user.Adapt<User>();
-}
-
-[HttpPost("create")]
-public async Task<IActionResult> CreateUser(AuthorizationRequest authorizationRequest)
-{
-    await using var context = await _dbContext.CreateDbContextAsync();
-
-    Result<User?> result = _authorizationService.RegisterUser(context, (User)authorizationRequest);
-    if (!result.IsSuccess)
-        return BadRequest();
-        
-    await context.SaveChangesAsync();
-        
-    var cachedUser = (CachedUser)result.Unwrap()!;
-    _genericCacheService.CacheObject(cachedUser);
-        
-    return Ok(result.Unwrap());
-}
-
-[HttpPost("login")]
-public async Task<IActionResult> LoginUser(AuthorizationRequest authorizationRequest)
-{
-    await using var context = await _dbContext.CreateDbContextAsync();
-
-    Result<User?> result = await _authorizationService.AuthenticateUserAsync(context, HttpContext, (User)authorizationRequest);
-    if (!result.IsSuccess)
-        return BadRequest();
-        
-    await context.SaveChangesAsync();
-
-    return Ok();
-}
 ```
 
-## `IGenericCacheService`
+### `RegistrationTokenAttribute`
 
-This interface manages caching operations for various objects.
+This attribute is used to mark a property as a registration token.
 
-### Methods
+```cs
+[RegistrationToken]
+public Guid RegistrationToken { get; set; }
+```
 
-#### `CacheObject<T>(T genericObject, TimeSpan? expiry = null, When when = When.Always)`
+### `PasswordResetTokenAttribute`
 
-Caches an object into a Redis database.
+Specifies that a property represents a password reset token.
+```cs
+[PasswordResetToken]
+[MaxLength(64)]
+public string? PasswordResetToken { get; set; }
+```
+ 
+## Methods
+
+### `RegisterUser<T>`
+Registers a user into the authentication database with hashed password storage.
+
+- **Parameters**:
+  - `dbContext`: Database context used for user registration operation.
+  - `authenticationObject`: Object containing user information to be registered.
+- **Return Type**: `Result<T?>`
+  - Result of the registration operation indicating success or failure along with the registered user object.
+- **Constraints**: `T` must be a class.
+
+### `AuthenticateUserAsync<T>`
+Authenticates a user based on provided credentials.
+
+- **Parameters**:
+  - `dbContext`: Database context used for authentication process.
+  - `httpContext`: HttpContext of the caller endpoint used for issuing the resulting authorization cookie.
+  - `authenticationObject`: Object containing user credentials for authentication.
+- **Return Type**: `Task<Result<T?>>`
+  - Task leading to a Result of the authentication operation indicating success or failure along with the authenticated user object.
+- **Constraints**: `T` must be a class.
+
+### `LogoutUser`
+Terminates the authenticated user's session, revoking their current authentication cookie.
+
+- **Parameters**:
+  - `httpContext`: HttpContext of the caller endpoint from which the user's cookie is extracted.
+- **Return Type**: `Result`
+  - Result indicating the success or failure of the logout operation.
+
+### `ValidateRegistrationToken<T>`
+Validates a user's registration token. Usable only when `UseEmailVerification` is enabled.
+
+- **Parameters**:
+  - `dbContext`: Database context used for the validation process.
+  - `authenticationObject`: Object containing the user's registration token to validate.
+- **Return Type**: `Result`
+  - Result indicating the success or failure of the validation operation.
+- **Constraints**: `T` must be a class.
+
+#### Remarks
+Class must contain a defined `RegistrationToken`
+```cs
+    [RegistrationToken]
+    public Guid RegistrationToken { get; set; }
+```
+	
+### `UpdatePassword<T>`
+If `newPassword` is not provided, it will generate a `PasswordResetToken` with an expiration of 15m.
+Else it will update the password based on the `[Password]` attribute parameters of the object.
+
+- **Parameters**:
+  - `dbContext`: Database context used for password update operation.
+  - `authenticationObject` (optional): Object containing the authenticated user's information.
+  - `newPassword` (optional): New password for the authenticated user. If null, a new password is automatically generated.
+- **Return Type**: `Result<T?>`
+  - Result indicating success or failure along with the updated user object.
+- **Constraints**: `T` must be a class.
+
+#### Remarks
+Class must contain a defined `PasswordResetToken`
+```cs
+    [PasswordResetToken]
+    [MaxLength(64)]
+    public string? PasswordResetToken { get; set; }
+```
+
+---
+
+---
+
+# IGenericCacheService Interface
+
+The `IGenericCacheService` interface defines methods to interact with a generic cache, providing functionalities for storing, retrieving, updating, and clearing cached objects.
+
+## Registration
+
+### `RegisterCachingService(this IServiceCollection serviceCollection, Assembly assembly, string connectionString)`
+
+Registers the generic caching service and connects to the redis cache
 
 ```csharp
-void CacheObject<T>(T genericObject, TimeSpan? expiry = null, When when = When.Always);
+builder.Services.RegisterCachingService(executingAssembly, "127.0.0.1:6379");
 ```
 
-#### `FetchAll(Type genericObject)`
+## Attributes
 
-Fetches all cached variations of a given type.
+### `CacheKeyAttribute`
+
+Specifies the cache key, 
+The key will be the "ClassName:Key-Value"
 
 ```csharp
-List<string> FetchAll(Type genericObject);
+[CacheKey]
+public Guid Id { get; set; }
 ```
 
-#### `FetchObject(Type genericObject, string key)`
+## Methods
 
-Fetches a cached object based on a provided key.
+### `CacheObject<T>`
+Stores an object into a Redis database cache with a designated key construction.
+
+- **Parameters**:
+  - `genericObject`: Object instance to be stored into the cache.
+  - `expiry` (optional): Specifies the duration for which the object should remain in the cache. Default value is null indicating no expiry time.
+  - `when` (optional): Indicates the scenarios where this operation should be performed. Default is set to always.
+- **Type Parameter**: `T`
+  - Type of the object to be cached. It should be serializable.
+
+### `FetchAll`
+Retrieves all cached instances of the specified type from the cache.
+
+- **Parameters**:
+  - `genericObject`: Type of the objects to be fetched from the cache.
+- **Return Type**: `List<string>`
+  - List of string representations of all cached instances of the specified type.
+
+### `FetchObject`
+Retrieves a specific object from the cache using its associated key.
+
+- **Parameters**:
+  - `genericObject`: Type of the object to be fetched.
+  - `key`: Unique key associated with the object in the cache.
+- **Return Type**: `string?`
+  - The cached object serialized as a string if found, otherwise null.
+
+### `FetchNearest`
+Fetches objects from the cache that have key values closely resembling the provided guess.
+
+- **Parameters**:
+  - `genericObject`: Type of the objects to be fetched.
+  - `guess`: Estimate of the cache key associated with the desired objects.
+- **Return Type**: `List<string>`
+  - List of objects serialized as strings that have keys resembling the provided guess.
+
+### `UpdateObject<T>`
+Updates a specific object within the cache.
+
+- **Parameters**:
+  - `genericObject`: Updated version of the object to be stored into the cache.
+- **Type Parameter**: `T`
+  - Type of the object to be updated in the cache. It should be serializable.
+
+### `DeleteObject`
+Deletes a specific object from the cache using its associated key.
+
+- **Parameters**:
+  - `genericObject`: Type of the objects to be fetched.
+  - `key`: Unique key associated with the object in the cache.
+- **Return Type**: `bool`
+  - True if deletion was successful, false otherwise.
+
+### `DeleteObject`
+Deletes a specific object from the cache using its associated key.
+
+- **Parameters**:
+  - `key`: Unique key associated with the object in the cache.
+- **Return Type**: `bool`
+  - True if deletion was successful, false otherwise.
+
+### `RefreshCacheAsync`
+Clears and repopulates the cache with a new set of objects asynchronously.
+
+- **Parameters**:
+  - `genericObjects`: List of new objects to be stored into cache after clearance.
+- **Return Type**: `Task`
+  - Task representing the asynchronous operation of cache refreshing.
+
+---
+
+
+---
+
+# IEmailService Interface
+
+The `IEmailService` interface encapsulates methods for sending emails synchronously and asynchronously within your application.
+
+## Registration
+
+### `RegisterEmailService(this IServiceCollection serviceCollection, string connectionString, string email, string password)`
+
+Registers the email service and connects to the email server
 
 ```csharp
-string? FetchObject(Type genericObject, string key);
+builder.Services.RegisterEmailService("dns:port", "email@email.com", "password");
 ```
 
-#### `FetchNearest(Type genericObject, string guess)`
+## Methods
 
-Fetches an item based on the nearest guess to the cache key.
+### `SendOutEmail`
+Sends an email to a recipient.
+
+- **Parameters**:
+  - `sender`: The mailbox address from which the email will be sent.
+  - `recipientEmail`: Email address of the recipient.
+  - `subject`: The subject line of the email.
+  - `body`: The main content of the email.
+  - `isHtml` (optional): Flag indicating whether the body content is HTML or not (defaults to false).
+- **Return Type**: `Result`
+  - Result object indicating the status of the email sending operation.
+
+### `SendOutEmail<T>`
+Sends a templated email to a recipient.
+
+- **Parameters**:
+  - `sender`: The mailbox address from which the email will be sent.
+  - `recipientEmail`: Email address of the recipient.
+  - `subject`: The subject line of the email.
+  - `templateObject`: An object that contains variables to be replaced in the HTML template.
+  - `htmlContent`: The HTML template for the email body.
+- **Type Parameter**:
+  - `T`: The type of the template object.
+- **Return Type**: `Result`
+  - Result object indicating the status of the email sending operation.
+
+### `SendOutEmailAsync`
+Asynchronously sends an email to a recipient.
+
+- **Parameters**:
+  - `sender`: The mailbox address from which the email will be sent.
+  - `recipientEmail`: Email address of the recipient.
+  - `subject`: The subject line of the email.
+  - `body`: The main content of the email.
+  - `isHtml` (optional): Flag indicating whether the body content is HTML or not (defaults to false).
+- **Return Type**: `Task<Result>`
+  - Task representing the asynchronous email operation, containing a result object indicating the status of the email sending operation.
+
+### `SendOutEmailAsync<T>`
+Asynchronously sends a templated email to a recipient.
+
+- **Parameters**:
+  - `sender`: The mailbox address from which the email will be sent.
+  - `recipientEmail`: Email address of the recipient.
+  - `subject`: The subject line of the email.
+  - `templateObject`: An object that contains variables to be replaced in the HTML template.
+  - `htmlContent`: The HTML template for the email body.
+- **Type Parameter**:
+  - `T`: The type of the template object.
+- **Return Type**: `Task<Result>`
+  - Task representing the asynchronous email operation, containing a result object indicating the status of the email sending operation.
+
+---
+
+
+---
+
+# IPasswordHashService Interface
+
+The `IPasswordHashService` interface provides methods to hash passwords securely and validate password correctness.
+
+## Registration
+
+### `RegisterPasswordHashing(this IServiceCollection serviceCollection)`
+
+Registers the password hashing service
 
 ```csharp
-List<string> FetchNearest(Type genericObject, string guess);
+builder.Services.RegisterPasswordHashing();
 ```
 
-#### `UpdateObject<T>(T genericObject)`
+## Methods
 
-Updates the item within the cache.
+### `CreateHash`
+Hashes a string into a password-safe hash.
 
-```csharp
-void UpdateObject<T>(T genericObject);
-```
+- **Parameters**:
+  - `password`: The password to be hashed.
+  - `hashType`: The requested hashType.
+- **Return Type**: `string`
+  - The hashed password.
 
-#### `DeleteObject(string key)`
+### `ValidatePassword`
+Validates a password to determine correctness.
 
-Deletes an item from the cache.
+- **Parameters**:
+  - `type`: The hashType used.
+  - `password`: The raw password to validate.
+  - `correctHash`: The correct hash retrieved from the database.
+- **Return Type**: `bool`
+  - Whether the password is valid or not.
 
-```csharp
-bool DeleteObject(string key);
-```
-
-#### `RefreshCacheAsync(List<Type> genericObjects)`
-
-Refreshes the cache with the provided set of objects.
-
-```csharp
-Task RefreshCacheAsync(List<Type> genericObjects);
-```
-
-## Usage Examples
-
-Here are snippets showcasing the usage of these interfaces:
-
-### User Authorization
-
-```csharp
-// Creating a user
-Result<User?> result = _authorizationService.RegisterUser(context, (User)authorizationRequest);
-
-// Logging in a user
-Result<User?> result = await _authorizationService.AuthenticateUserAsync(context, HttpContext, (User)authorizationRequest);
-
-// Logging out a user
-_authorizationService.LogoutUser(HttpContext);
-```
-
-### Caching Operations
-
-```csharp
-// Caching an object
-_genericCacheService.CacheObject(cachedUser);
-
-// Fetching a cached object
-_genericCacheService.FetchObject(typeof(CachedUser), userId.ToString());
-
-// Fetching all cached variations
-_genericCacheService.FetchAll(typeof(CachedUser));
-
-// Deleting an object from the cache
-_genericCacheService.DeleteObject(key);
-
-// Refreshing the cache
-await _genericCacheService.RefreshCacheAsync(new List<Type> { typeof(CachedUser) });
-```
-
-### Model
-```csharp
-[AdaptFrom(typeof(User))]
-public class CachedUser
-{
-    [CacheKey]
-    public Guid Id { get; set; }
-
-    public required string EmailAddress { get; set; }
-
-    public static explicit operator CachedUser(User user) =>
-        user.Adapt<CachedUser>();
-}
-```
+---
