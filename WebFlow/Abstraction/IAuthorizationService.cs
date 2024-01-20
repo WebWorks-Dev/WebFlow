@@ -96,7 +96,10 @@ public static partial class RegisterWebFlowServices
             
             List<PropertyInfo> authenticationClaims = classProperties.Where(p => p.GetCustomAttribute<AuthenticationClaimAttribute>() is not null).ToList();
             if(authenticationClaims.Count is not 0)
-                dictionary.Add("authentication_claims", uniqueAttributes);
+                dictionary.Add("authentication_claims", authenticationClaims);
+            
+            if(dictionary.Count is 0)
+                continue;
             
             ServicesConfiguration.AuthenticationPropertiesMap.Add(type, dictionary);
         }

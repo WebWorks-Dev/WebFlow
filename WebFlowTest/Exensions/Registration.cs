@@ -9,7 +9,7 @@ public static class Registration
     {
         serviceCollection.AddDbContextFactory<EntityFrameworkContext>(options =>
         {
-            options.UseNpgsql("Host=localhost;Port=5432;Username=postgres;Password=root;Database=Numix;Include Error Detail=true");
+            options.UseNpgsql("Host=localhost;Port=5432;Username=postgres;Password=root;Database=YOUR_DB;Include Error Detail=true");
             //options.EnableSensitiveDataLogging(); // Optional, for debugging
         });
     }

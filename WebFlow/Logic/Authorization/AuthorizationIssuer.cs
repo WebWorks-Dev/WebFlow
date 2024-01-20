@@ -29,7 +29,7 @@ internal partial class WebFlowAuthorizationImplementation
         
         claims.AddRange(from claimsProperty in claimsProperties 
         let authenticationClaimAttribute = (AuthenticationClaimAttribute)Attribute.GetCustomAttribute(claimsProperty, typeof(AuthenticationClaimAttribute))!
-        let claimValue = (string?)claimsProperty.GetValue(authenticationObject) ?? ""
+        let claimValue = claimsProperty.GetValue(authenticationObject).ToString() ?? ""
         
             select new Claim(authenticationClaimAttribute.ClaimName, claimValue));
 

@@ -18,8 +18,8 @@
 		<RepositoryType>GitHub</RepositoryType>
 		<PackageIcon>image0.jpg</PackageIcon>
 		<PackageTags>Asp.Net, C#, NET6.0, Recaptcha, Authentication, Authorization</PackageTags>
-		<Version>1.2.0</Version>
-		<PackageReleaseNotes>Added missing method in GenericCacheService, added Recaptcha attribute</PackageReleaseNotes>
+		<Version>1.2.1</Version>
+		<PackageReleaseNotes>Fixed bugs within claims and JWT Issuing</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>
