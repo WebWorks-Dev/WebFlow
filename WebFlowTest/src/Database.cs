@@ -16,6 +16,7 @@ public sealed class EntityFrameworkContext : DbContext
     }
     
     public DbSet<User> Users { get; set; }
+    public DbSet<DbObject> DbObject { get; set; }
     
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -59,4 +60,12 @@ public class CachedUser
 
     public static explicit operator CachedUser(User user) =>
         user.Adapt<CachedUser>();
+}
+
+public class DbObject
+{
+    [CacheKey]
+    public Guid Id { get; set; }
+    
+    public int Index { get; set; }
 }

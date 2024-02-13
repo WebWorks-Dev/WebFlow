@@ -120,9 +120,9 @@ internal class GenericCacheImplementation : IGenericCacheService
         return _cacheDb.KeyDelete(key);
     }
     
-    public async Task RefreshCacheAsync(List<Type> genericObjects)
+    public async Task RefreshCacheAsync<T>(List<T> genericObjects)
     {
-        List<RedisKey>? keys = GetKeysWithPrefix(genericObjects[0]);
+        List<RedisKey>? keys = GetKeysWithPrefix(typeof(T));
         if (keys is null || keys.Count is 0)
         {
             foreach (var genericObject in genericObjects)

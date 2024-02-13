@@ -12,6 +12,7 @@ internal class PasswordHash : IPasswordHashService
         {
             HashType.PBKDF2 => Pbkdf2.CreateHash(password),
             HashType.BCRYPT => BCrypt.Net.BCrypt.HashPassword(password),
+            HashType.None => password,
             
             _ => throw new ArgumentOutOfRangeException(nameof(hashType), hashType, null)
         };
@@ -23,6 +24,7 @@ internal class PasswordHash : IPasswordHashService
         {
             HashType.PBKDF2 => Pbkdf2.ValidatePassword(password, correctHash),
             HashType.BCRYPT => BCrypt.Net.BCrypt.Verify(password, correctHash),
+            HashType.None => password == correctHash,
             
             _ => throw new ArgumentOutOfRangeException(nameof(hashType), hashType, null)
         };   

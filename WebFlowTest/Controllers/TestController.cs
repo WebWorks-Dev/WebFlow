@@ -8,7 +8,7 @@ using WebFlow.Caching;
 using WebFlow.Authorization;
 using WebFlow.Email;
 using WebFlow.Extensions;
-
+using WebFlow.Helpers;
 using WebFlowTest.Models;
 using WebFlowTest.Templates;
 
@@ -23,20 +23,18 @@ public class AccountController : ControllerBase
     private readonly IWebFlowAuthorizationService _authorizationService;
     private readonly IDbContextFactory<EntityFrameworkContext> _dbContext;
     private readonly IGenericCacheService _genericCacheService;
-    private readonly IEmailService _emailService;
+    //private readonly IEmailService _emailService;
 
     public AccountController(IWebFlowAuthorizationService authorizationService,
         IDbContextFactory<EntityFrameworkContext> dbContext,
-        IGenericCacheService genericCacheService,
-        IEmailService emailService)
+        IGenericCacheService genericCacheService)
     {
         _authorizationService = authorizationService;
         _dbContext = dbContext;
         _genericCacheService = genericCacheService;
-        _emailService = emailService;
     }
 
-    [HttpPost("create")]
+    /*[HttpPost("create")]
     public async Task<IActionResult> CreateUser(AuthorizationRequest authorizationRequest)
     {
         await using var context = await _dbContext.CreateDbContextAsync();
@@ -116,7 +114,7 @@ public class AccountController : ControllerBase
         await _emailService.SendOutEmailAsync(_senderAddress, user.EmailAddress, "Reset password", signUpTemplate, htmlContent);
 
         return Ok(user);
-    }
+    }*/
 
     [HttpGet("fetch/{userId:guid}")]
     public IActionResult FetchUser(Guid userId)
@@ -129,6 +127,50 @@ public class AccountController : ControllerBase
     public IActionResult FetchAll(string recaptchaToken)
     {
         return Ok(_genericCacheService.FetchAll(typeof(CachedUser)));
+    }
+    
+    [HttpGet("fetch-all-objects")]
+    public IActionResult FetchAllObjects()
+    {
+        var allJson = _genericCacheService.FetchAll(typeof(DbObject));
+        
+        var dbObjects = new List<DbObject>();
+        foreach (var entryJson in allJson)
+        {
+            JsonHelper.TryDeserialize<DbObject>(entryJson, out var dbObject);
+            if (dbObject is not null)
+                dbObjects.Add(dbObject);
+        }
+        
+        return Ok(dbObjects.OrderBy(x=>x.Index));
+    }
+    
+    [HttpPost("create-objects")]
+    public async Task<IActionResult> CreateObjects()
+    {
+        await using var context = await _dbContext.CreateDbContextAsync();
+
+        for (int i = 0; i < 100; i++)
+        {
+            var dbObject = new DbObject() { Id =Guid.NewGuid(), Index=i};
+            context.DbObject.Add(dbObject);
+            _genericCacheService.CacheObject(dbObject);
+        }
+        
+        await context.SaveChangesAsync();
+        
+        return Ok();
+    }
+    
+    [HttpPost("refresh-objects-cache")]
+    public async Task<IActionResult> RefreshObjects()
+    {
+        await using var context = await _dbContext.CreateDbContextAsync();
+        var objectsList = context.DbObject.AsNoTracking().ToList();
+
+        await _genericCacheService.RefreshCacheAsync(objectsList);
+        
+        return Ok();
     }
     
     [Authorize]

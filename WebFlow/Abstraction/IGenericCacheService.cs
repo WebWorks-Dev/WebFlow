@@ -70,7 +70,7 @@ public interface IGenericCacheService
     /// </summary>
     /// <param name="genericObjects">List of new objects to be stored into cache after clearance.</param>
     /// <returns>Task representing the asynchronous operation of cache refreshing.</returns>
-    Task RefreshCacheAsync(List<Type> genericObjects);
+    Task RefreshCacheAsync<T>(List<T> genericObjects);
 }
 
 public static class RedisConnectionManager

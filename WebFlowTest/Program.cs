@@ -31,7 +31,7 @@ builder.Services.RegisterAuthorizationService(executingAssembly, jwtConfig);
 builder.Services.UseEmailVerification(executingAssembly);
 
 builder.Services.RegisterPasswordHashing();
-builder.Services.RegisterEmailService("smtp.gmail.com:587", "YOUR_EMAIL", "YOUR_PASSWORD");
+//builder.Services.RegisterEmailService("smtp.gmail.com:587", "YOUR_EMAIL", "YOUR_PASSWORD");
 builder.Services.UseRecaptcha("YOUR_RECAPTCHA_KEY");
 
 builder.Services.RegisterDataServices();
@@ -55,12 +55,12 @@ app.MapControllers();
 
 app.UseAuthorization();
 app.RegisterAuthorizationMiddlewares(AuthorizationType.Jwt);
-/*using (var serviceScope = app.Services.CreateScope())
+using (var serviceScope = app.Services.CreateScope())
 {
     var context = serviceScope.ServiceProvider.GetRequiredService<EntityFrameworkContext>();
     context.Database.EnsureDeleted();
     context.Database.EnsureCreated();
-}*/
+}
 
 if (app.Environment.IsDevelopment())
 {

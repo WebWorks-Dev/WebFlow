@@ -12,14 +12,12 @@ namespace WebFlow.Middlewares.Jwt;
 public class JwtValidatorMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly JwtConfig _jwtConfig;
     private readonly IMemoryCache _memoryCache;
 
-    public JwtValidatorMiddleware(RequestDelegate next, IMemoryCache memoryCache, JwtConfig jwtConfig)
+    public JwtValidatorMiddleware(RequestDelegate next, IMemoryCache memoryCache)
     {
         _next = next;
         _memoryCache = memoryCache;
-        _jwtConfig = jwtConfig;
     }
 
     public async Task Invoke(HttpContext httpContext)
@@ -40,26 +38,7 @@ public class JwtValidatorMiddleware
             return;
         }
 
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtConfig.Key));
-
-        try
-        {
-            tokenHandler.ValidateToken(jwtToken, new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidIssuer = _jwtConfig.Issuer,
-                ValidAudience = _jwtConfig.Audience,
-                IssuerSigningKey = key
-            }, out _);
-
-            await _next(httpContext);
-        }
-        catch (Exception)
-        {
-            httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        }
+        await _next(httpContext);   
     }
 
     private bool ShouldApplyJwtValidation(HttpContext context)

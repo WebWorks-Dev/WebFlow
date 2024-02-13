@@ -1,10 +1,12 @@
-using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.IdentityModel.Tokens;
 using WebFlow.Attributes;
 using WebFlow.Extensions;
 using WebFlow.Middlewares.Jwt;
@@ -103,7 +105,31 @@ public static partial class RegisterWebFlowServices
             
             ServicesConfiguration.AuthenticationPropertiesMap.Add(type, dictionary);
         }
-        
+
+        serviceCollection.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.RequireHttpsMetadata = false;
+                options.TokenValidationParameters = new TokenValidationParameters()
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidAudience = jwtConfig.Audience,
+                    ValidIssuer = jwtConfig.Issuer,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig.Key))
+                };
+                
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        context.Token = context.Request.Cookies["JwtToken"];
+
+                        return Task.CompletedTask;
+                    }
+                };
+            });
+
         serviceCollection.AddMemoryCache();
         
         serviceCollection.AddSingleton(jwtConfig);

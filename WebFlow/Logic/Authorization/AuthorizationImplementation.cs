@@ -81,8 +81,7 @@ internal partial class WebFlowAuthorizationImplementation : IWebFlowAuthorizatio
 
         SetPassword(ref authenticationObject);
 
-        List<PropertyInfo>? uniqueProperties = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap,
-            authenticationObject, "unique_properties");
+        List<PropertyInfo>? uniqueProperties = FetchMappedProperty(ServicesConfiguration.AuthenticationPropertiesMap, authenticationObject, "unique_properties");
         if (uniqueProperties is not null)
         {
             T? user = FetchDatabaseObject(uniqueProperties, authenticationObject, dbContext);
@@ -148,7 +147,7 @@ internal partial class WebFlowAuthorizationImplementation : IWebFlowAuthorizatio
 
         if (!ServicesConfiguration.IsEmailAuthEnabled)
         {
-            IssueAuthorizationClaims(httpContext, authenticationObject);
+            IssueAuthorizationClaims(httpContext, user);
 
             return Result<T?>.Ok(user);
         }
