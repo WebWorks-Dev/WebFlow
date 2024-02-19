@@ -18,8 +18,8 @@
 		<RepositoryType>GitHub</RepositoryType>
 		<PackageIcon>image0.jpg</PackageIcon>
 		<PackageTags>Asp.Net, C#, NET6.0, Recaptcha, Authentication, Authorization</PackageTags>
-		<Version>1.2.1</Version>
-		<PackageReleaseNotes>Fixed bugs within claims and JWT Issuing</PackageReleaseNotes>
+		<Version>1.2.2</Version>
+		<PackageReleaseNotes>Fixed bugs within caching and authorization issuing</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>
@@ -51,7 +51,7 @@
       <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
       <PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="6.5.0" />
       <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="6.5.0" />
-      <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.0.3" />
+      <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.3.1" />
     </ItemGroup>
 
     <ItemGroup>
